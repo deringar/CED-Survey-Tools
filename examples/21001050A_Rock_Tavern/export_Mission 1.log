@@ -1,0 +1,22 @@
+--------------------------------------------------------------------------------
+EXPORT Data Export Utility [Jun 15 2021]
+Copyright (c) 1997-2021 Applanix Corporation.  All rights reserved.
+Date : 07/24/24    Time : 12:02:28
+--------------------------------------------------------------------------------
+Mission date        : 07/12/2023
+Input file          : F:\__Working Registrations\21001050A_Rock Tavern\Raw Project\230712_141449\05_INS-GPS_PROC\02_PROJECT\21001050A\Mission 1\Proc\sbet_Mission 1.out
+Output file         : F:\__Working Registrations\21001050A_Rock Tavern\Trajectories\export_Mission 1.shp
+Output Rate Type    : All Records
+Start time          : 312743.001
+End time            : 999999.000
+UTC offset          : 18.000
+Lat/Lon units       : Decimal degrees
+Height              : Ellipsoidal
+Grid                : USA State Plane 1983 
+Zone                : New York Eastern Zone (3101) 
+Datum               : NAD83 (2011) 
+Ellipsoid           : GRS 1980 
+Transformation type : 14 Parameter
+Target epoch        : 2023.5260
+--------------------------------------------------------------------------------
+Processing completed.

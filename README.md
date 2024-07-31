@@ -1,5 +1,5 @@
 # CED-Survey-Tools
-This is a collection of all the geospatial/survey programs I've made to automate certain specific tasks.
+This is a collection of all the geospatial/survey programs I've made to automate specific tasks.
 
 ## Overview
 CED Survey Tools is a Python-based toolset designed to assist with conducting CED (Cultural and Environmental Data) surveys. This project provides functionality for managing survey data, integrating with GIS tools, and performing various analyses related to environmental and cultural data collection.

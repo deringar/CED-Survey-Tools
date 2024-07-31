@@ -1,0 +1,22 @@
+--------------------------------------------------------------------------------
+EXPORT Data Export Utility [Jun 15 2021]
+Copyright (c) 1997-2021 Applanix Corporation.  All rights reserved.
+Date : 07/23/24    Time : 20:40:18
+--------------------------------------------------------------------------------
+Mission date        : 09/30/2023
+Input file          : F:\__Working Registrations\23012083A_Georgia Power_Klondike\23012083A_TTNP\230930_193504\05_INS-GPS_PROC\02_PROJECT\23012083A_230930-2\Mission 2\Proc\sbet_Mission 2.out
+Output file         : F:\__Working Registrations\23012083A_Georgia Power_Klondike\Trajectories\export_Mission 2.shp
+Output Rate Type    : All Records
+Start time          : 589862.004
+End time            : 999999.000
+UTC offset          : 18.000
+Lat/Lon units       : Decimal degrees
+Height              : Ellipsoidal
+Grid                : USA State Plane 1983 
+Zone                : Georgia Western Zone (1002) 
+Datum               : NAD83 (2011) 
+Ellipsoid           : GRS 1980 
+Transformation type : 14 Parameter
+Target epoch        : 2023.7452
+--------------------------------------------------------------------------------
+Processing completed.

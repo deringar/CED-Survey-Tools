@@ -1,0 +1,9 @@
+R:\GeospatialData\UAS Data\2023\23011646A_NG New Scotland Substation\6_Final_for_Extraction\Trajectories
+
+R:\GeospatialData\UAS Data\2023\23006091A_GPC Cartersville GA\6_Final_for_Extraction\Trajectories
+
+R:\GeospatialData\UAS Data\2023\23012083A_Georgia_Power_Klondike\6_Final_for_Extraction\Trajectories
+
+R:\GeospatialData\UAS Data\2023\23012971A_Garrett Road - Trae Lane 230 kV LiDAR\6_Final_for_Extraction\Trajectories
+
+R:\GeospatialData\UAS Data\2021\21001050A_Rock Tavern\6_Final_for_Extraction\Trajectories

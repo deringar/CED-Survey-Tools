@@ -228,6 +228,7 @@ def read_coords_from_csv(file_path, cols=['Easting', 'Northing'], chunksize=5000
         chunk[cols] = chunk[cols].apply(lambda x: x.str.rstrip("'") if x.dtype == 'object' else x)
         # Convert to numpy array and append to points
         points.append(chunk.to_numpy(dtype=float))
+    # print(points)
     return np.concatenate(points)
 
 def find_nearest_neighbors(pole_points, time_points, start_time=None, end_time=None, min_distance_threshold=10, min_time_threshold=1, nn_file='nearest-neighbors.csv'):
@@ -252,7 +253,7 @@ def find_nearest_neighbors(pole_points, time_points, start_time=None, end_time=N
     
     for pole in pole_points:
         # Extract x and y coordinates from poles
-        y_pole, x_pole = pole[1:3]
+        y_pole, x_pole = pole[0:2]
         
         # Filter time_points based on the specified time range
         if start_time is not None and end_time is not None:
@@ -355,6 +356,24 @@ def parse_weather_data_times(df):
     df['Time'] = df['Time'].apply(convert_to_time)
     return df
 
+def find_header_row(file_path, sheet_name=None, looking_for="Time"):
+    print("> Searching for 'Time' column...")
+    if file_path.endswith('.xlsx') or file_path.endswith('.xls'):
+        # Read a small portion of the file to find the header row
+        if sheet_name:
+            df = pd.read_excel(file_path, sheet_name=sheet_name, nrows=20, header=None)
+        else:
+            df = pd.read_excel(file_path, nrows=20, header=None)
+    elif file_path.endswith('.csv'):
+        df = pd.read_csv(file_path, nrows=20, header=None)
+    else:
+        raise ValueError("> Unsupported file format '{os.path.split(file_path)[1]}'")
+    
+    for idx, row in df.iterrows():
+        if looking_for in row.values or looking_for.capitalize() in row.values or looking_for.lower() in row.values:
+            return idx
+    raise ValueError("> No header row containing 'Time' found")
+
 def read_weather_data(weather_data_file, data_columns=[1, 2, 7, 8], skiprows=2):
     """
     Reads the weather data CSV file into a pandas DataFrame with specified column data types and rounding.
@@ -371,24 +390,6 @@ def read_weather_data(weather_data_file, data_columns=[1, 2, 7, 8], skiprows=2):
     :return: A pandas DataFrame.
     """
     # Finds which row contains the column headers by searching first 20 rows for the 'Time' label
-    def find_header_row(file_path, sheet_name=None):
-        print("> Searching for 'Time' column...")
-        if file_path.endswith('.xlsx') or file_path.endswith('.xls'):
-            # Read a small portion of the file to find the header row
-            if sheet_name:
-                df = pd.read_excel(file_path, sheet_name=sheet_name, nrows=20, header=None)
-            else:
-                df = pd.read_excel(file_path, nrows=20, header=None)
-        elif file_path.endswith('.csv'):
-            df = pd.read_csv(file_path, nrows=20, header=None)
-        else:
-            raise ValueError("> Unsupported file format '{os.path.split(file_path)[1]}'")
-        
-        for idx, row in df.iterrows():
-            if 'Time' in row.values or 'TIME' in row.values:
-                return idx
-        raise ValueError("> No header row containing 'Time' found")
-
     header = find_header_row(weather_data_file) - 1
     # Read the weather file with specified column types
     try:
@@ -510,12 +511,12 @@ def main():
     # Find and convert min/max times
     min_time = time_df["TIME"].min()
     max_time = time_df["TIME"].max()
-        
-    # Define tweak knobs
-    pole_cols = ['Easting', 'Northing', 'Point Number']
-    time_cols = ['X', 'Y', 'TIME']
-    # Dynamic file naming
     
+    # Define tweak knobs
+    pole_cols = ['Easting', 'Northing'] # 'Point Number'
+    time_cols = ['X', 'Y', 'TIME']
+    
+    # Dynamic file naming
     if os.path.exists('nearest-points.csv'):
         base_name_np = 'nearest-points'
         # Get the highest version number for nearest-neighbors
@@ -651,7 +652,8 @@ _____`--._ ''      . '---'``--._|:::::::|:::::::::::::::::::::::|
 ||        @author alex.dering                                 `%%' 
 ||        
 """,
-"""     :++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++:
+"""     
+        :++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++:
       [###########################################################################################
      +############################################################################################]
      =############################################################################################]
@@ -681,7 +683,7 @@ _____`--._ ''      . '---'``--._|:::::::|:::::::::::::::::::::::|
       
       WX ~ [ Automator ] ~ 2024
       @author alex.dering
-      """]
+"""]
       
     rand = random.randint(0, 2)
     random_art = art[rand]
@@ -689,7 +691,7 @@ _____`--._ ''      . '---'``--._|:::::::|:::::::::::::::::::::::|
 {random_art}
 > [ Welcome ] 
 > .... If you already know what you're doing just press ENTER, 
-> .... otherwise please consult the README.txt file before proceeding.
+> .... otherwise please consult the README.md file before proceeding.
 > .... WARNING: Please close all files that you are passing to the program before running
 >                   .============================.
 >                   |  Press ENTER to proceed... |

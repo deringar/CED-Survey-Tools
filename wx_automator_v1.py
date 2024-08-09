@@ -49,6 +49,7 @@ from datetime import datetime, timedelta
 import PySimpleGUI as sg
 from pytz import utc, timezone 
 import random
+import string
 
 def get_last_sunday(date_input=None):
     """
@@ -140,7 +141,7 @@ def format_date_time(date_time, mode=3, to_est=False, custom_format="%I:%M %p"):
         print(f"Attribute error in strftime: {ae}")
         return str(date_time)
 
-def coords_to_points(input_csv, output_csv, elevation=False):
+def coords_to_points(input_csv, output_csv, elevation=False, offset=152000):
     """
     Parses coordinate data (x, y) from CSV file and writes it in PNEZD format to a new CSV file.
     
@@ -169,13 +170,15 @@ def coords_to_points(input_csv, output_csv, elevation=False):
         #date_input = input("Enter date of data collection (MM/DD/YYYY) ... ")
         
         rows_list = []
-        
+        point_number = offset
         for idx, row in df.iterrows():
             
-            point_num = int(row["Pole Point #"])
+            point_num = point_number
             easting = float(row["Nearest X"])
             northing = float(row["Nearest Y"])
             time_seconds = float(row["Time"])
+            
+            point_number += 1
             
             # Convert time in seconds to datetime object
             time = epoch_seconds_to_time(time_seconds, epoch=get_last_sunday())
@@ -218,18 +221,34 @@ def read_coords_from_csv(file_path, cols=['Easting', 'Northing'], chunksize=5000
     
     coords_file = pd.read_csv(file_path, usecols=[0])
     total_rows = len(coords_file)
-    
-    for chunk in pd.read_csv(file_path, usecols=cols, chunksize=chunksize, encoding=encoding):
-        rows += len(chunk)
-        print(f"> ...... Processing [{rows}/{total_rows}]")
-        # Strip leading and trailing whitespace
-        chunk[cols] = chunk[cols].apply(lambda x: x.str.strip() if x.dtype == 'object' else x)
-        # Remove apostrophes at the end of strings
-        chunk[cols] = chunk[cols].apply(lambda x: x.str.rstrip("'") if x.dtype == 'object' else x)
-        # Convert to numpy array and append to points
-        points.append(chunk.to_numpy(dtype=float))
-    # print(points)
-    return np.concatenate(points)
+    try:
+        for chunk in pd.read_csv(file_path, usecols=cols, chunksize=chunksize, encoding=encoding):
+            rows += len(chunk)
+            print(f"> ...... Processing [{rows}/{total_rows}]")
+            # Strip leading and trailing whitespace
+            chunk[cols] = chunk[cols].apply(lambda x: x.str.strip() if x.dtype == 'object' else x)
+            # Remove apostrophes at the end of strings
+            chunk[cols] = chunk[cols].apply(lambda x: x.str.rstrip("'") if x.dtype == 'object' else x)
+            # Convert to numpy array and append to points
+            points.append(chunk.to_numpy(dtype=float))
+        # print(points)
+        return np.concatenate(points)
+    except (KeyError, ValueError):
+        print("> Couldn't find 'Easting' and 'Northing' columns, using columns 1 and 2 as defaults.")
+        
+        # Retry with positional indexing (columns 1 and 2)
+        points = []
+        rows = 0
+        for chunk in pd.read_csv(file_path, usecols=[1, 2], chunksize=chunksize, encoding=encoding):
+            rows += len(chunk)
+            print(f"> ...... Processing [{rows}/{total_rows}] (using default columns)")
+            # Strip leading and trailing whitespace
+            chunk = chunk.apply(lambda x: x.str.strip() if x.dtype == 'object' else x)
+            # Remove apostrophes at the end of strings
+            chunk = chunk.apply(lambda x: x.str.rstrip("'") if x.dtype == 'object' else x)
+            # Convert to numpy array and append to points
+            points.append(chunk.to_numpy(dtype=float))
+        return np.concatenate(points)
 
 def find_nearest_neighbors(pole_points, time_points, start_time=None, end_time=None, min_distance_threshold=10, min_time_threshold=1, nn_file='nearest-neighbors.csv'):
     """
@@ -297,11 +316,17 @@ def find_nearest_neighbors(pole_points, time_points, start_time=None, end_time=N
 def select_time_range(min_time, max_time, sunday=get_last_sunday()):
     """
     Creates a PySimpleGUI interface for the user to select a time range using sliders.
-    
+    Also includes text boxes for entering column letters for Time, Temperature, Speed, and Direction columns.
+
     :param min_time: The earliest time in the dataset.
     :param max_time: The latest time in the dataset.
-    :return: Selected start and end times.
+    :return: Selected start and end times, and the column indices for Time, Temperature, Speed, and Direction.
     """
+    def column_letter_to_index(letter):
+        """
+        Converts a column letter (e.g., 'A', 'B', 'C') to a column index (1-based).
+        """
+        return string.ascii_uppercase.index(letter.upper())
     
     earliest_time = epoch_seconds_to_time(min_time)
     latest_time = epoch_seconds_to_time(max_time)
@@ -314,6 +339,10 @@ def select_time_range(min_time, max_time, sunday=get_last_sunday()):
         [sg.Text('End Time:'), sg.Slider(range=(min_time, max_time), orientation='h', size=(40, 15), key='end_time', enable_events=True)],
         [sg.Text('Start Time Display:', size=(20, 1), key='start_time_display')],
         [sg.Text('End Time Display:', size=(20, 1), key='end_time_display')],
+        [sg.Text('Time Column:'), sg.InputText(key='time_column'), sg.Text('default: 1', size=(10, 1))],
+        [sg.Text('Temperature Column:'), sg.InputText(key='temperature_column'), sg.Text('default: 2', size=(10, 1))],
+        [sg.Text('Speed Column:'), sg.InputText(key='speed_column'), sg.Text('default: 7', size=(10, 1))], 
+        [sg.Text('Direction Column:'), sg.InputText(key='direction_column'), sg.Text('default: 8', size=(10, 1))],
         [sg.Button('Submit')]
     ]
 
@@ -330,7 +359,15 @@ def select_time_range(min_time, max_time, sunday=get_last_sunday()):
 
     window.close()
 
-    return values['start_time'], values['end_time']
+    # Convert column letters to indices, use defaults if inputs are blank
+    time_column_index = column_letter_to_index(values['time_column']) if values['time_column'] else 1
+    temperature_column_index = column_letter_to_index(values['temperature_column']) if values['temperature_column'] else 2
+    speed_column_index = column_letter_to_index(values['speed_column']) if values['speed_column'] else 7
+    direction_column_index = column_letter_to_index(values['direction_column']) if values['direction_column'] else 8
+    
+    column_list = [time_column_index, temperature_column_index, speed_column_index, direction_column_index]
+    
+    return values['start_time'], values['end_time'], column_list
     
 def parse_weather_data_times(df):
     """
@@ -353,11 +390,12 @@ def parse_weather_data_times(df):
                 continue
         raise ValueError(f"> Time data '{time_str}' does not match expected formats.")
 
-    df['Time'] = df['Time'].apply(convert_to_time)
+    df['time'] = df['time'].apply(convert_to_time)
     return df
 
 def find_header_row(file_path, sheet_name=None, looking_for="Time"):
     print("> Searching for 'Time' column...")
+    
     if file_path.endswith('.xlsx') or file_path.endswith('.xls'):
         # Read a small portion of the file to find the header row
         if sheet_name:
@@ -367,54 +405,61 @@ def find_header_row(file_path, sheet_name=None, looking_for="Time"):
     elif file_path.endswith('.csv'):
         df = pd.read_csv(file_path, nrows=20, header=None)
     else:
-        raise ValueError("> Unsupported file format '{os.path.split(file_path)[1]}'")
+        raise ValueError(f"> Unsupported file format '{os.path.split(file_path)[1]}'")
     
     for idx, row in df.iterrows():
-        if looking_for in row.values or looking_for.capitalize() in row.values or looking_for.lower() in row.values:
+        # Normalize row values to lower case and strip whitespace
+        normalized_row = [str(value).strip().lower() for value in row.values]
+        
+        # Check if the keyword is in the normalized row
+        if looking_for.lower() in normalized_row:
+            print(f"> Header found in row {idx + 1}: {row.values}")
             return idx
-    raise ValueError("> No header row containing 'Time' found")
-
-def read_weather_data(weather_data_file, data_columns=[1, 2, 7, 8], skiprows=2):
-    """
-    Reads the weather data CSV file into a pandas DataFrame with specified column data types and rounding.
     
-    :param weather_data_file: Path to the CSV file.
-    :param skiprows=2: Number of header rows before Time, Out (F), Speed (mph), Dir
-    :param data_columns=[1, 2, 7, 8]: Column indicies of the 4 required columns IN ORDER:
-        _______________________ (default)
-        - Time     ............     1   (B)
-        - Temp Out (F) ........     2   (C)
-        - Wind Speed (mph) ....     7   (H)
-        - Wind Dir     ........     8   (I)
-
-    :return: A pandas DataFrame.
-    """
+    raise ValueError("> No header row containing 'Time' found")
+    
+def read_weather_data(weather_data_file, data_columns=[1, 2, 7, 8]):
     # Finds which row contains the column headers by searching first 20 rows for the 'Time' label
-    header = find_header_row(weather_data_file) - 1
+    header = find_header_row(weather_data_file)
+    print(f"Header found at row {header}")
+
     # Read the weather file with specified column types
     try:
-        df = pd.read_excel(weather_data_file, usecols=data_columns, header=header, skiprows=header, parse_dates=True)
+        df = pd.read_excel(weather_data_file, usecols=data_columns, header=header, parse_dates=True)
     except ValueError:
-        df = pd.read_csv(weather_data_file, usecols=data_columns, header=header, skiprows=header + 1, parse_dates=True)
+        df = pd.read_csv(weather_data_file, usecols=data_columns, header=header, parse_dates=True)
+
+    # Normalize column names
+    df.columns = df.columns.str.strip().str.lower()  # Normalize column names
+
     print(f"> Reading '{os.path.split(weather_data_file)[1]}'...\n{df}")
+    print(f"Columns: {df.columns.tolist()}")  # Print columns for debugging
 
     # Find names of required columns and add to list
-    time, out, spd, wdir = df.columns
+    [time, out, spd, wdir] = df.columns
     required_columns = [time, out, spd, wdir]
-    
+
     for col in required_columns:
         if col not in df.columns:
             print(f"> Missing column: {col}")
             continue
+
+    # Check if 'time' column exists before parsing
+    if time not in df.columns:
+        print(f"> 'Time' column not found in DataFrame. Available columns: {df.columns.tolist()}")
+        return None
+
     if not isinstance(df[time][header], datetime):
         df = parse_weather_data_times(df)
+
     # Convert 'Speed' and 'Out' columns to float and round to 1 decimal place
     try:
         df[spd] = df[spd].astype(float).round(1)
         df[out] = df[out].astype(float).round(1)
     except ValueError as ve:
-        print(f"> Could not convert string, {ve}, to float, skipping row...")
+        print(ve)
         pass
+
     return df
 
 def combine_data(weather_df, points_df, output_file="pole-weather-data-times.csv"):
@@ -530,14 +575,15 @@ def main():
     else:
         np_file = 'nearest-points.csv'
 
-    # Read coordinate data from poles file
+
     pole_points = read_coords_from_csv(pole_points_file, cols=pole_cols)
+    
     
     # Read coordinate data from time points file
     time_points = read_coords_from_csv(time_points_file, cols=time_cols, chunksize=50000)
     
     # Select desired time frame
-    start_time, end_time = select_time_range(min_time, max_time)
+    start_time, end_time, data_cols = select_time_range(min_time, max_time)
     
     if start_time is None or end_time is None:
         print("> Time range selection was cancelled. \n> Exiting...")
@@ -555,7 +601,7 @@ def main():
         filetypes=(("CSV Files", "*.csv"), ("Excel Files", "*.xlsx"))
     )
     
-    weather_df = read_weather_data(weather_data_file)
+    weather_df = read_weather_data(weather_data_file, data_columns=data_cols)
     
     full_df = combine_data(weather_df, nearest_points_df)
     
@@ -685,6 +731,7 @@ _____`--._ ''      . '---'``--._|:::::::|:::::::::::::::::::::::|
       @author alex.dering
 """]
       
+    # Choose random text art
     rand = random.randint(0, 2)
     random_art = art[rand]
     input(f"""
